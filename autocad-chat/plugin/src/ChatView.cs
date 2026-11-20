@@ -192,7 +192,7 @@ namespace AutoCADChat
 
         private void StartBridge()
         {
-            if (!_settings.HasApiKey)
+            if (_settings.UsesApiKey && !_settings.HasApiKey)
             {
                 SetStatus(State.Offline, "Needs an API key");
                 AddNotice("Add your Anthropic API key to start. It is stored encrypted for your Windows account only.", "Open Settings", OpenSettings);
@@ -233,6 +233,11 @@ namespace AutoCADChat
                     _model = Str(ev, "model");
                     SetStatus(State.Ready, "Ready");
                     UpdateFooter();
+                    break;
+                case "needs_login":
+                    _fatalShown = true;
+                    SetStatus(State.Offline, "Not signed in");
+                    AddSignIn();
                     break;
                 case "turn_start":
                     SetStatus(State.Busy, "Working…");
@@ -573,6 +578,52 @@ namespace AutoCADChat
             }, forceScroll: true);
         }
 
+        private void AddSignIn()
+        {
+            RemoveWelcome();
+            var panel = new StackPanel();
+            panel.Children.Add(Ui.Text("Sign in with your Claude account", _t.Text, 13, FontWeights.SemiBold));
+            panel.Children.Add(Ui.SelectableText("Claude Code signs in once in your browser. Click Sign in, finish in the browser window that opens, then click Restart.", _t.Text, 12.5));
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
+            var signIn = Ui.Button("Sign in", _t, primary: true);
+            signIn.Click += (_, _) => OpenSignIn();
+            var restart = Ui.Button("Restart", _t);
+            restart.Margin = new Thickness(8, 0, 0, 0);
+            restart.Click += (_, _) => StartBridge();
+            row.Children.Add(signIn);
+            row.Children.Add(restart);
+            panel.Children.Add(row);
+            Add(new Border
+            {
+                Background = _t.Surface,
+                BorderBrush = _t.Accent,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(10, 8, 10, 8),
+                Margin = new Thickness(0, 8, 0, 8),
+                Child = panel,
+            }, forceScroll: true);
+        }
+
+        private static void OpenSignIn()
+        {
+            var claude = Paths.FindClaude();
+            var exe = claude == null ? "claude" : "& '" + claude.Replace("'", "''") + "'";
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "powershell.exe",
+                    Arguments = "-NoExit -NoProfile -Command \"" + exe + " auth login\"",
+                    UseShellExecute = true,
+                });
+            }
+            catch (Exception ex)
+            {
+                Log.Write("sign-in: " + ex.Message);
+            }
+        }
+
         private void RemoveWelcome()
         {
             if (_welcome != null)
@@ -622,7 +673,7 @@ namespace AutoCADChat
 
         private void UpdateFooter()
         {
-            var parts = new List<string> { _model.Replace("claude-", ""), _settings.Effort + " effort" };
+            var parts = new List<string> { _settings.UsesApiKey ? "API key" : "Claude account", _model.Replace("claude-", ""), _settings.Effort + " effort" };
             if (_settings.ReadOnly) parts.Add("read-only");
             if (!_settings.ConfirmDestructive) parts.Add("no approvals");
             if (_contextTokens > 0) parts.Add("context " + Ui.FormatTokens(_contextTokens));

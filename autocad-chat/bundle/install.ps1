@@ -74,13 +74,44 @@ if (-not $SkipPrepare) {
     if ($LASTEXITCODE -ne 0) { throw "uv sync failed (exit $LASTEXITCODE). The panel will retry on first use." }
 }
 
+Step 'Claude Code (lets the panel use your Claude account, no API key needed)'
+$claude = $null
+foreach ($c in @((Join-Path $env:USERPROFILE '.local\bin\claude.exe'), (Join-Path $env:APPDATA 'npm\claude.cmd'))) {
+    if (Test-Path $c) { $claude = $c; break }
+}
+if (-not $claude) {
+    $cmd = Get-Command claude -ErrorAction SilentlyContinue
+    if ($cmd) { $claude = $cmd.Source }
+}
+if (-not $claude) {
+    Write-Host 'Claude Code is not installed; installing it for your user from claude.ai ...'
+    Invoke-RestMethod https://claude.ai/install.ps1 | Invoke-Expression
+    $claude = Join-Path $env:USERPROFILE '.local\bin\claude.exe'
+    if (-not (Test-Path $claude)) {
+        Write-Warning 'Claude Code did not install. Install it from https://claude.com/claude-code, or use an API key in the panel Settings.'
+        $claude = $null
+    }
+}
+if ($claude) {
+    Write-Host "Using $claude"
+    $signedIn = $false
+    try { $signedIn = ((& $claude auth status) | Out-String | ConvertFrom-Json).loggedIn } catch { }
+    if ($signedIn) {
+        Write-Host 'Already signed in to your Claude account.'
+    } else {
+        Write-Host 'Sign in to your Claude account: a browser window opens. Finish there, then come back here.'
+        & $claude auth login
+    }
+}
+
 Step 'Done'
 Write-Host @"
 
 Next:
   1. Start AutoCAD 2025. If it asks about loading AutoCADChat.dll, choose "Always Load".
   2. Type CLAUDE and press Enter. The chat panel opens on the right.
-  3. Click Settings, paste your Anthropic API key (console.anthropic.com), and Save.
+  3. Start chatting. It uses your Claude account (Pro or Max plan).
+     To use an Anthropic API key instead, open Settings and change "Sign in with".
 
 Claude can read and change the open drawing and nothing else on this computer.
 Raw command-line and AutoLISP access are switched off; destructive changes ask you first.

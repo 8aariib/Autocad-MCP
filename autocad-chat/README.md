@@ -13,13 +13,24 @@ Claude can reach that drawing and nothing else on your computer.
    powershell -ExecutionPolicy Bypass -File .\install.ps1
    ```
 
-   The installer adds [uv](https://docs.astral.sh/uv/) if it's missing, copies the plugin to
+   The installer adds [uv](https://docs.astral.sh/uv/) and
+   [Claude Code](https://claude.com/claude-code) if they're missing, has you sign in to your
+   Claude account once in the browser, copies the plugin to
    `%APPDATA%\Autodesk\ApplicationPlugins`, and prepares Python. It needs no admin rights.
 3. Start AutoCAD 2025. If it asks about loading `AutoCADChat.dll`, choose **Always Load**.
    The plugin isn't code-signed, so AutoCAD asks once.
-4. Type `CLAUDE`, click **Settings**, paste an Anthropic API key and click **Save**.
-   Create the key at [console.anthropic.com](https://console.anthropic.com/settings/keys).
-   API use is billed by Anthropic separately from a Claude.ai subscription.
+4. Type `CLAUDE` and start chatting.
+
+### Sign-in
+
+| Sign in with | Needs | Billed |
+|---|---|---|
+| **Your Claude account** (default) | Claude Code, signed in with `claude auth login` | Your Pro or Max plan's included usage |
+| **An Anthropic API key** | A key from [console.anthropic.com](https://console.anthropic.com/settings/keys), pasted in Settings | Per token by Anthropic, separately from a Claude plan |
+
+With your Claude account, the panel runs Claude Code headless with **every built-in tool
+removed** (`--tools ""`, `--restricted`, `--strict-mcp-config`). Claude Code can only use the
+AutoCAD tools, and every one of those calls goes to the panel for permission first.
 
 ## Using it
 
@@ -43,7 +54,8 @@ Claude can reach that drawing and nothing else on your computer.
 | Allowed folders (Settings) | The only folders Claude may open drawings from or save them to. The default is Documents. |
 | Ask before destructive changes (on by default) | A delete, purge, merge or close waits for you to click **Allow**. This includes destructive steps inside a batch. |
 | Read-only mode (Settings) | Claude can look at the drawing but not change it |
-| API key | Stored encrypted with Windows DPAPI for your Windows account. Only the chat engine sees it, and the AutoCAD tool server never does. |
+| Claude account mode | Claude Code starts with no built-in tools (no shell, no file access, no web access) and only the AutoCAD server. It keeps no session files. |
+| API key (if used) | Stored encrypted with Windows DPAPI for your Windows account. Only the chat engine sees it, and the AutoCAD tool server never does. |
 
 ## How it fits together
 
@@ -84,6 +96,8 @@ key, logs and Python environment.
   `%APPDATA%\Autodesk\ApplicationPlugins\AutoCADChat.bundle\PackageContents.xml` exists, then
   restart AutoCAD. `SECURELOAD` may have blocked the DLL; choose **Always Load**, or add the
   bundle folder to `TRUSTEDPATHS`.
+- **"Claude Code is not signed in".** Click **Sign in** in the panel, finish in the browser, then
+  click **Restart**. You can also run `claude auth login` in PowerShell yourself.
 - **"uv is not installed".** Run `install.ps1` again, or set the path to `uv.exe` under
   Settings → Advanced.
 - **"The AutoCAD tools stopped".** Open Settings → Advanced → **Open log folder** and read

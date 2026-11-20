@@ -12,6 +12,8 @@ namespace AutoCADChat
         public AppSettings Result { get; private set; }
 
         private readonly PasswordBox _key = new();
+        private readonly ComboBox _engine = new();
+        private readonly StackPanel _keyPanel = new();
         private readonly ComboBox _model = new();
         private readonly ComboBox _effort = new();
         private readonly TextBox _folders = new();
@@ -37,9 +39,19 @@ namespace AutoCADChat
 
             var p = new StackPanel { Margin = new Thickness(16) };
 
-            p.Children.Add(Label("Anthropic API key"));
+            p.Children.Add(Label("Sign in with"));
+            _engine.Items.Add("My Claude account (no API key; uses Claude Code)");
+            _engine.Items.Add("An Anthropic API key");
+            _engine.SelectedIndex = current.UsesApiKey ? 1 : 0;
+            p.Children.Add(_engine);
+            p.Children.Add(Hint("Your Claude account uses your Pro or Max plan's included usage. An API key is billed separately by Anthropic."));
+
+            _keyPanel.Children.Add(Label("Anthropic API key"));
             ApplyStyle(_key);
-            p.Children.Add(_key);
+            _keyPanel.Children.Add(_key);
+            p.Children.Add(_keyPanel);
+            _engine.SelectionChanged += (_, _) => _keyPanel.Visibility = _engine.SelectedIndex == 1 ? Visibility.Visible : Visibility.Collapsed;
+            _keyPanel.Visibility = current.UsesApiKey ? Visibility.Visible : Visibility.Collapsed;
             var keyHelp = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 3, 0, 0) };
             keyHelp.Children.Add(Ui.Text(_hadKey ? "A key is saved. Leave empty to keep it." : "Create one at console.anthropic.com → API keys.", t.Muted, 11.5));
             var link = Ui.Button("Open console", t, fontSize: 11);
@@ -55,7 +67,7 @@ namespace AutoCADChat
                 clear.Click += (_, _) => { Result.ApiKey = ""; clear.IsEnabled = false; clear.Content = "Removed"; };
                 keyHelp.Children.Add(clear);
             }
-            p.Children.Add(keyHelp);
+            _keyPanel.Children.Add(keyHelp);
 
             p.Children.Add(Label("Model"));
             foreach (var m in AppSettings.Models) _model.Items.Add(m);
@@ -116,13 +128,14 @@ namespace AutoCADChat
             p.Children.Add(buttons);
 
             Content = p;
-            Loaded += (_, _) => { if (!_hadKey) _key.Focus(); };
+            Loaded += (_, _) => { if (current.UsesApiKey && !_hadKey) _key.Focus(); };
         }
 
         private void Commit()
         {
+            Result.Engine = _engine.SelectedIndex == 1 ? AppSettings.EngineApi : AppSettings.EngineClaudeCode;
             var key = _key.Password.Trim();
-            if (key.Length > 0)
+            if (Result.UsesApiKey && key.Length > 0)
             {
                 if (!key.StartsWith("sk-ant-"))
                 {

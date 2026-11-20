@@ -13,6 +13,12 @@ namespace AutoCADChat
         public static readonly string[] Models = { "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5" };
         public static readonly string[] Efforts = { "low", "medium", "high", "xhigh" };
 
+        /// <summary>"claude-code": the user's Claude account through Claude Code (no API key).
+        /// "api": an Anthropic API key.</summary>
+        public string Engine { get; set; } = EngineClaudeCode;
+        public const string EngineClaudeCode = "claude-code";
+        public const string EngineApi = "api";
+
         public string Model { get; set; } = "claude-opus-5-5";
         public string Effort { get; set; } = "medium";
         public bool ConfirmDestructive { get; set; } = true;
@@ -52,6 +58,7 @@ namespace AutoCADChat
         }
 
         [JsonIgnore] public bool HasApiKey => ApiKey.Length > 0;
+        [JsonIgnore] public bool UsesApiKey => Engine == EngineApi;
 
         private static readonly byte[] Entropy = Encoding.UTF8.GetBytes("AutoCADChat/v1");
 
@@ -70,6 +77,7 @@ namespace AutoCADChat
                     {
                         if (Array.IndexOf(Models, s.Model) < 0) s.Model = Models[0];
                         if (Array.IndexOf(Efforts, s.Effort) < 0) s.Effort = "medium";
+                        if (s.Engine != EngineApi) s.Engine = EngineClaudeCode;
                         return s;
                     }
                 }
@@ -93,7 +101,7 @@ namespace AutoCADChat
 
         /// <summary>True when a change needs the tool server restarted (it reads these at start).</summary>
         public bool NeedsRestartComparedTo(AppSettings other) =>
-            ReadOnly != other.ReadOnly || AllowedFolders != other.AllowedFolders ||
+            Engine != other.Engine || ReadOnly != other.ReadOnly || AllowedFolders != other.AllowedFolders ||
             UvPath != other.UvPath || ProtectedApiKey != other.ProtectedApiKey;
     }
 }

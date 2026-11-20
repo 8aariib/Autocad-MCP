@@ -25,6 +25,28 @@ namespace AutoCADChat
         /// <summary>The bridge's Python project (pyproject.toml + uv.lock), shipped in the bundle.</summary>
         public static string BridgeDir => Path.Combine(ContentsDir, "bridge");
 
+        /// <summary>Claude Code: the native installer's place, npm's shim, then PATH.</summary>
+        public static string? FindClaude()
+        {
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var roaming = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            foreach (var c in new[] { Path.Combine(home, ".local", "bin", "claude.exe"), Path.Combine(roaming, "npm", "claude.cmd") })
+                if (File.Exists(c)) return c;
+            foreach (var dir in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+            {
+                foreach (var name in new[] { "claude.exe", "claude.cmd" })
+                {
+                    try
+                    {
+                        var c = Path.Combine(dir.Trim(), name);
+                        if (File.Exists(c)) return c;
+                    }
+                    catch (ArgumentException) { }
+                }
+            }
+            return null;
+        }
+
         /// <summary>uv.exe: the configured path, then the usual install places, then PATH.</summary>
         public static string? FindUv(string configured)
         {

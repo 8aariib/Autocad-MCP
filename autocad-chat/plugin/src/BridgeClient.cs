@@ -38,8 +38,8 @@ namespace AutoCADChat
                 return "uv is not installed. Run install.ps1 from the Claude for AutoCAD folder, or set the uv path in Settings.";
             if (!File.Exists(Path.Combine(Paths.BridgeDir, "pyproject.toml")))
                 return "The bridge files are missing from " + Paths.BridgeDir + ". Reinstall Claude for AutoCAD.";
-            if (!s.HasApiKey)
-                return "Add your Anthropic API key in Settings to start.";
+            if (s.UsesApiKey && !s.HasApiKey)
+                return "Add your Anthropic API key in Settings, or switch Sign in with to your Claude account.";
 
             var psi = new ProcessStartInfo
             {
@@ -61,8 +61,16 @@ namespace AutoCADChat
             env["UV_NO_PROGRESS"] = "1";
             env["PYTHONUTF8"] = "1";
             env["PYTHONUNBUFFERED"] = "1";
-            env["ANTHROPIC_API_KEY"] = s.ApiKey;
+            env["ACADCHAT_ENGINE"] = s.Engine;
+            if (s.UsesApiKey) env["ANTHROPIC_API_KEY"] = s.ApiKey;
+            else env.Remove("ANTHROPIC_API_KEY");
             env.Remove("ANTHROPIC_AUTH_TOKEN");
+            var claude = Paths.FindClaude();
+            if (claude != null)
+                env["ACADCHAT_CLAUDE_CMD"] = System.Text.Json.JsonSerializer.Serialize(
+                    claude.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase)
+                        ? new[] { Environment.GetEnvironmentVariable("COMSPEC") ?? "cmd.exe", "/c", claude }
+                        : new[] { claude });
             env["ACADCHAT_MODEL"] = s.Model;
             env["ACADCHAT_EFFORT"] = s.Effort;
             env["ACADCHAT_CONFIRM"] = s.ConfirmDestructive ? "1" : "0";

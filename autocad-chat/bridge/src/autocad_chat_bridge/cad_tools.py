@@ -20,6 +20,8 @@ MAX_RESULT_CHARS = 60_000
 # The tools the server lists in search mode that run another tool by name.
 PROXY_TOOL = "call_tool"
 BATCH_TOOL = "cad_batch"
+# The discovery tools describe_tool cannot describe; all of them only read.
+KNOWN_COSTS = {"search_tools": "read", "describe_tool": "read", "call_tool": "read"}
 
 
 @dataclass
@@ -111,6 +113,8 @@ class CadTools:
 
     async def cost_of(self, tool: str) -> str:
         """read | safe | mutate | destructive | escape (unknown tools: mutate)."""
+        if tool in KNOWN_COSTS:
+            return KNOWN_COSTS[tool]
         if tool not in self._costs:
             try:
                 res = await self._client.call_tool("describe_tool", {"name": tool}, raise_on_error=False)
