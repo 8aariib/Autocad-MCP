@@ -1,0 +1,5 @@
+dist/
+plugin/bin/
+plugin/obj/
+bridge/.venv/
+__pycache__/
