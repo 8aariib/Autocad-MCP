@@ -21,6 +21,19 @@ Claude can reach that drawing and nothing else on your computer.
    The plugin isn't code-signed, so AutoCAD asks once.
 4. Type `CLAUDE` and start chatting.
 
+### In the Claude desktop app too
+
+The installer also adds AutoCAD as a connector in the Claude desktop app, with the same
+safety settings. Quit the app fully and reopen it. In a chat, click **+**, then
+**Connectors**, and turn on **autocad**. Keep AutoCAD open with a drawing. Skip this step with
+`install.ps1 -NoClaudeApp`.
+
+### Something not working?
+
+Run `diagnose.ps1` from the same folder. It checks each piece (plugin, Python, Claude Code
+and sign-in, the chat engine, the Claude app connector, and the logs). It saves
+`claude-autocad-report.txt` to your Desktop and changes nothing.
+
 ### Sign-in
 
 | Sign in with | Needs | Billed |

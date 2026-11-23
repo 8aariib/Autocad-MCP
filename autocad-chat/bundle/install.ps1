@@ -10,10 +10,14 @@
        where AutoCAD loads it automatically.
     3. Prepares the Python environment in %LOCALAPPDATA%\AutoCADChat\venv
        so the first chat starts quickly.
+    4. Installs Claude Code and signs you in, so no API key is needed.
+    5. Adds AutoCAD as a connector in the Claude desktop app (skip with -NoClaudeApp),
+       so it shows under the + button there too.
   No administrator rights are needed.
 #>
 param(
-    [switch]$SkipPrepare
+    [switch]$SkipPrepare,
+    [switch]$NoClaudeApp
 )
 
 $ErrorActionPreference = 'Stop'
@@ -104,6 +108,58 @@ if ($claude) {
     }
 }
 
+if (-not $NoClaudeApp) {
+    Step 'Adding AutoCAD to the Claude desktop app (the + menu)'
+    $server = Join-Path $venv 'Scripts\autocad-mcp.exe'
+    if (-not (Test-Path $server)) {
+        Write-Warning "The AutoCAD tool server is not prepared yet ($server). Run install.ps1 again without -SkipPrepare."
+    } else {
+        $targets = @((Join-Path $env:APPDATA 'Claude\claude_desktop_config.json'))
+        $targets += Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Packages') -Directory -Filter 'Claude_*' -ErrorAction SilentlyContinue |
+            ForEach-Object { Join-Path $_.FullName 'LocalCache\Roaming\Claude\claude_desktop_config.json' }
+        $docs = [Environment]::GetFolderPath('MyDocuments')
+        if (-not $docs) { $docs = Join-Path $env:USERPROFILE 'Documents' }  # never leave it blank: blank means every folder
+        $entry = [ordered]@{
+            command = $server
+            args    = @()
+            env     = [ordered]@{
+                AUTOCAD_MCP_BACKEND        = 'com'
+                CAD_LAUNCH                 = 'never'
+                DISCOVERY_MODE             = 'search'
+                MAX_TOOL_COST              = 'destructive'
+                DANGEROUS_COMMANDS_ENABLED = 'false'
+                ALLOWED_PATHS              = $docs
+            }
+        }
+        $wrote = $false
+        foreach ($cfg in $targets) {
+            $dir = Split-Path -Parent $cfg
+            # Only the default location is created; a Store install is written only if it already has a folder.
+            if (-not (Test-Path $dir)) {
+                if ($cfg -ne $targets[0]) { continue }
+                New-Item -ItemType Directory -Force -Path $dir | Out-Null
+            }
+            $json = $null
+            if (Test-Path $cfg) {
+                Copy-Item $cfg "$cfg.bak" -Force
+                try { $json = Get-Content $cfg -Raw | ConvertFrom-Json } catch {
+                    Write-Warning "$cfg is not valid JSON; left unchanged (backup: $cfg.bak)."
+                    continue
+                }
+            }
+            if (-not $json) { $json = New-Object PSObject }
+            if (-not $json.PSObject.Properties['mcpServers']) { $json | Add-Member -NotePropertyName mcpServers -NotePropertyValue (New-Object PSObject) }
+            if ($json.mcpServers.PSObject.Properties['autocad']) { $json.mcpServers.PSObject.Properties.Remove('autocad') }
+            $json.mcpServers | Add-Member -NotePropertyName autocad -NotePropertyValue ([PSCustomObject]$entry)
+            $text = $json | ConvertTo-Json -Depth 32
+            [System.IO.File]::WriteAllText($cfg, $text, (New-Object System.Text.UTF8Encoding $false))
+            Write-Host "Added to $cfg"
+            $wrote = $true
+        }
+        if ($wrote) { Write-Host 'Quit the Claude desktop app fully (tray icon > Quit) and reopen it to see AutoCAD under +.' }
+    }
+}
+
 Step 'Done'
 Write-Host @"
 
@@ -112,6 +168,11 @@ Next:
   2. Type CLAUDE and press Enter. The chat panel opens on the right.
   3. Start chatting. It uses your Claude account (Pro or Max plan).
      To use an Anthropic API key instead, open Settings and change "Sign in with".
+
+Or chat from the Claude desktop app: quit and reopen it, open a chat, click +,
+and turn on the "autocad" connector. Keep AutoCAD open with a drawing.
+
+Problems? Run diagnose.ps1 in this folder and paste the report it saves on your Desktop.
 
 Claude can read and change the open drawing and nothing else on this computer.
 Raw command-line and AutoLISP access are switched off; destructive changes ask you first.
